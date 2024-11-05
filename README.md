@@ -1,0 +1,1 @@
+**Jikan (時間)** is a Rust library to batch-execute, time, and verify solutions to Advent of Code puzzles.
