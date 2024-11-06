@@ -1,9 +1,9 @@
-use std::{fmt::{Display, Formatter}, fs};
+use std::{collections::HashMap, fmt::{Display, Formatter}, fs, hash::BuildHasher};
 
 use serde::Deserialize;
 use thiserror::Error;
 
-use crate::{Scope, SolverProvider};
+use crate::{Scope, Solver};
 
 #[derive(Debug, Clone, Copy, Eq, PartialEq, Hash)]
 pub struct Puzzle {
@@ -43,18 +43,18 @@ impl Puzzle {
 }
 
 impl Scope {
-    pub (crate) fn puzzles(self, provider: &impl SolverProvider) -> Vec<Puzzle> {
+    pub (crate) fn puzzles<H: BuildHasher>(self, solvers: &HashMap<Puzzle, Solver, H>) -> Vec<Puzzle> {
         match self {
-            Scope::All => provider.solvers()
+            Scope::All => solvers
                 .keys()
                 .copied()
                 .collect(),
-            Scope::Year(year) => provider.solvers()
+            Scope::Year(year) => solvers
                 .keys()
                 .filter(|puzzle| puzzle.year == year)
                 .copied()
                 .collect(),
-            Scope::Day(year, day) => provider.solvers()
+            Scope::Day(year, day) => solvers
                 .keys()
                 .filter(|puzzle| puzzle.year == year && puzzle.day == day)
                 .copied()

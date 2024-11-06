@@ -1,9 +1,9 @@
-use std::{fmt::Display, time::{Duration, Instant}};
+use std::{collections::HashMap, fmt::Display, hash::BuildHasher, time::{Duration, Instant}};
 
 use colored::{ColoredString, Colorize};
 use thiserror::Error;
 
-use crate::{puzzles::DataError, utils, Puzzle, SolverProvider};
+use crate::{puzzles::DataError, utils, Puzzle};
 
 #[derive(Debug, Clone, Error)]
 pub (crate) enum Error {
@@ -99,8 +99,8 @@ impl Display for Result {
 }
 
 impl Puzzle {
-    pub (crate) fn run(self, provider: &impl SolverProvider) -> Result {
-        let solver = match provider.solvers().get(&self) {
+    pub (crate) fn run<H: BuildHasher>(self, provider: &HashMap<Puzzle, Solver, H>) -> Result {
+        let solver = match provider.get(&self) {
             None => return Result::Skipped(ResolutionError::Solver),
             Some(solver) => solver,
         };
@@ -129,7 +129,7 @@ impl Puzzle {
         }
     }
 
-    pub (crate) fn verify(self, provider: &impl SolverProvider) -> Result {
+    pub (crate) fn verify<H: BuildHasher>(self, provider: &HashMap<Puzzle, Solver, H>) -> Result {
         let data = match self.get_data() {
             Err(err) => return Result::Skipped(ResolutionError::Data(err)),
             Ok(result) => result
@@ -159,5 +159,5 @@ impl Puzzle {
     }
 }
 
-pub trait Solver: Fn(&str) -> SolverResult + Sync {}
-pub type SolverResult<'a> = std::result::Result<Box<dyn Display + Sync + 'a>, Box<dyn std::error::Error + Sync + 'a>>;
+pub type Solver = fn(&str) -> SolverResult;
+pub type SolverResult = std::result::Result<Box<dyn Display + Sync>, Box<dyn std::error::Error + Sync>>;

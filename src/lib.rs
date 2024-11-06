@@ -3,7 +3,7 @@
     clippy::similar_names
 )]
 
-use std::{time::{Instant, Duration}, collections::HashMap};
+use std::{collections::HashMap, hash::BuildHasher, time::{Duration, Instant}};
 
 use colored::Colorize;
 use rayon::prelude::{IntoParallelRefIterator, ParallelIterator};
@@ -26,9 +26,8 @@ pub struct ExecutionOptions {
     action: Action
 }
 
-pub fn execute(options: ExecutionOptions, provider: &impl SolverProvider) {
+pub fn execute<H: BuildHasher + Sync>(options: ExecutionOptions, provider: &HashMap<Puzzle, Solver, H>) {
     let puzzles = options.scope.puzzles(provider);
-
     println!("Executing {} puzzle(s)...", puzzles.len());
 
     let start_time = Instant::now();
@@ -82,8 +81,4 @@ fn print_summary(stats: &HashMap<Status, usize>, duration: Duration) {
         let msg = format!("{not_ran} / {total_puzzles} {puzzles} were not executed").bold().bright_yellow();
         println!("{msg}");
     }
-}
-
-pub trait SolverProvider: Sync {
-    fn solvers(&self) -> &HashMap<Puzzle, Box<dyn Solver>>;
 }
