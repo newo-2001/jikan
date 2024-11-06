@@ -3,7 +3,7 @@
     clippy::similar_names
 )]
 
-use std::{collections::HashMap, hash::BuildHasher, time::{Duration, Instant}};
+use std::{collections::HashMap, fmt::Display, hash::BuildHasher, time::{Duration, Instant}};
 
 use colored::Colorize;
 use rayon::prelude::{IntoParallelRefIterator, ParallelIterator};
@@ -26,7 +26,7 @@ pub struct ExecutionOptions {
     action: Action
 }
 
-pub fn execute<H: BuildHasher + Sync>(options: ExecutionOptions, provider: &HashMap<Puzzle, Solver, H>) {
+pub fn execute<E: Display, H: BuildHasher + Sync>(options: ExecutionOptions, provider: &HashMap<Puzzle, Solver<E>, H>) {
     let puzzles = options.scope.puzzles(provider);
     println!("Executing {} puzzle(s)...", puzzles.len());
 

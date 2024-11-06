@@ -99,7 +99,7 @@ impl Display for Result {
 }
 
 impl Puzzle {
-    pub (crate) fn run<H: BuildHasher>(self, provider: &HashMap<Puzzle, Solver, H>) -> Result {
+    pub (crate) fn run<E: Display, H: BuildHasher>(self, provider: &HashMap<Puzzle, Solver<E>, H>) -> Result {
         let solver = match provider.get(&self) {
             None => return Result::Skipped(ResolutionError::Solver),
             Some(solver) => solver,
@@ -129,7 +129,7 @@ impl Puzzle {
         }
     }
 
-    pub (crate) fn verify<H: BuildHasher>(self, provider: &HashMap<Puzzle, Solver, H>) -> Result {
+    pub (crate) fn verify<E: Display, H: BuildHasher>(self, provider: &HashMap<Puzzle, Solver<E>, H>) -> Result {
         let data = match self.get_data() {
             Err(err) => return Result::Skipped(ResolutionError::Data(err)),
             Ok(result) => result
@@ -159,5 +159,5 @@ impl Puzzle {
     }
 }
 
-pub type Solver = fn(&str) -> SolverResult;
-pub type SolverResult = std::result::Result<Box<dyn Display + Sync>, Box<dyn std::error::Error + Sync>>;
+pub type Solver<E = Box<dyn std::error::Error>> = fn(&str) -> SolverResult<E>;
+pub type SolverResult<E = Box<dyn std::error::Error>> = std::result::Result<Box<dyn Display>, E>;

@@ -44,7 +44,7 @@ impl Puzzle {
 }
 
 impl Scope {
-    pub (crate) fn puzzles<H: BuildHasher>(self, solvers: &HashMap<Puzzle, Solver, H>) -> Vec<Puzzle> {
+    pub (crate) fn puzzles<E: Display, H: BuildHasher>(self, solvers: &HashMap<Puzzle, Solver<E>, H>) -> Vec<Puzzle> {
         match self {
             Scope::All => solvers
                 .keys()
