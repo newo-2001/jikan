@@ -41,7 +41,7 @@ pub fn execute<H: BuildHasher + Sync>(options: ExecutionOptions, provider: &Hash
             };
 
             let puzzle_str = format!("[{puzzle}]").bold().bright_blue();
-            println!("{puzzle_str}{result}");
+            println!("{puzzle_str} {result}");
 
             result.status()
         }).collect::<Vec<_>>();

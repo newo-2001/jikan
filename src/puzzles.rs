@@ -15,6 +15,7 @@ pub struct Puzzle {
 #[derive(Debug, Deserialize)]
 pub (crate) struct PuzzleData {
     pub input: String,
+    #[serde(default)]
     pub solutions: Vec<String>
 }
 
@@ -22,7 +23,7 @@ pub (crate) struct PuzzleData {
 pub (crate) enum DataError {
     #[error("Failed to resolve input file: {0}")]
     NoFile(String),
-    #[error("Failed to parse solution file: {0}")]
+    #[error("Failed to parse puzzle data: {0}")]
     Malformed(#[from] serde_yml::modules::error::Error)
 }
 
