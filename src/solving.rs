@@ -140,7 +140,7 @@ impl Puzzle {
             Result::Success { result, stats } => (result, stats)
         };
 
-        let expected = match data.solutions.get(self.part as usize) {
+        let expected = match data.solutions.get(self.part as usize - 1) {
             None => return Result::Skipped(ResolutionError::Solution(self.part)),
             Some(solution) => solution
         };
