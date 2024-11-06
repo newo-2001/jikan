@@ -159,5 +159,5 @@ impl Puzzle {
     }
 }
 
-pub type Solver = dyn Fn(&str) -> SolverResult;
+pub trait Solver: Fn(&str) -> SolverResult + Sync {}
 pub type SolverResult<'a> = std::result::Result<Box<dyn Display + Sync + 'a>, Box<dyn std::error::Error + Sync + 'a>>;

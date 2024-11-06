@@ -85,5 +85,5 @@ fn print_summary(stats: &HashMap<Status, usize>, duration: Duration) {
 }
 
 pub trait SolverProvider: Sync {
-    fn solvers(&self) -> &HashMap<Puzzle, Box<Solver>>;
+    fn solvers(&self) -> &HashMap<Puzzle, Box<dyn Solver>>;
 }
