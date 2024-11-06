@@ -3,10 +3,10 @@ use std::{fmt::Display, time::{Duration, Instant}};
 use colored::{ColoredString, Colorize};
 use thiserror::Error;
 
-use crate::{utils, Puzzle, SolverProvider};
+use crate::{puzzles::DataError, utils, Puzzle, SolverProvider};
 
 #[derive(Debug, Clone, Error)]
-pub enum Error {
+pub (crate) enum Error {
     #[error("Solver produced an incorrect answer, expected: `{expected}` got `{actual}`")]
     IncorrectAnswer {
         expected: String,
@@ -16,16 +16,14 @@ pub enum Error {
     ExecutionError(String),
 }
 
-#[derive(Debug, Clone, Error)]
+#[derive(Debug, Error)]
 pub (crate) enum ResolutionError {
     #[error("Failed to resolve solver")]
     Solver,
-    #[error("Failed to resolve input file: {0}")]
-    InputFile(String),
-    #[error("Failed to resolve solution file: {0}")]
-    SolutionFile(String),
-    #[error("Failed to locate solution entry")]
-    SolutionEntry
+    #[error("Failed to resolve solution to part {0}")]
+    Solution(u32),
+    #[error(transparent)]
+    Data(#[from] DataError)
 }
 
 #[derive(Clone, Copy, Hash, PartialEq, Eq)]
@@ -40,7 +38,7 @@ pub (crate) struct Statistics {
     pub duration: Duration
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug)]
 pub (crate) enum Result {
     Success {
         result: String,
@@ -102,18 +100,18 @@ impl Display for Result {
 
 impl Puzzle {
     pub (crate) fn run(self, provider: &impl SolverProvider) -> Result {
-        let solver = match provider.get_solver(self) {
+        let solver = match provider.solvers().get(&self) {
             None => return Result::Skipped(ResolutionError::Solver),
             Some(solver) => solver,
         };
 
-        let input = match self.get_input() {
-            Err(error) => return Result::Skipped(error),
-            Ok(input) => input,
+        let data = match self.get_data() {
+            Err(err) => return Result::Skipped(ResolutionError::Data(err)),
+            Ok(result) => result
         };
 
         let start_time = Instant::now();
-        let result = match solver(&input) {
+        let result = match solver(&data.input) {
             Err(error) => return Result::Failure {
                 stats: Statistics {
                     duration: start_time.elapsed()
@@ -132,9 +130,9 @@ impl Puzzle {
     }
 
     pub (crate) fn verify(self, provider: &impl SolverProvider) -> Result {
-        let expected = match self.get_solution() {
-            Ok(solution) => solution.replace("\r\n", "").replace('\n', ""),
-            Err(err) => return Result::Skipped(err)
+        let data = match self.get_data() {
+            Err(err) => return Result::Skipped(ResolutionError::Data(err)),
+            Ok(result) => result
         };
 
         let (result, stats) = match self.run(provider) {
@@ -142,13 +140,19 @@ impl Puzzle {
             Result::Success { result, stats } => (result, stats)
         };
 
-        let actual = result.replace("\r\n", "").replace('\n', "");
+        let expected = match data.solutions.get(self.part as usize) {
+            None => return Result::Skipped(ResolutionError::Solution(self.part)),
+            Some(solution) => solution
+        };
 
-        if expected == actual {
+        if expected == &result {
             Result::Success { result, stats }
         } else {
             Result::Failure {
-                error: Error::IncorrectAnswer { expected, actual },
+                error: Error::IncorrectAnswer {
+                    expected: expected.clone(),
+                    actual: result
+                },
                 stats
             }
         }

@@ -7,16 +7,16 @@ use std::{time::{Instant, Duration}, collections::HashMap};
 
 use colored::Colorize;
 use rayon::prelude::{IntoParallelRefIterator, ParallelIterator};
-use solver::Status;
+use solving::Status;
 
 mod arguments;
-mod solver;
-mod puzzle;
+mod solving;
+mod puzzles;
 mod utils;
 
 pub use {
-    puzzle::Puzzle,
-    solver::{Solver, SolverResult},
+    puzzles::Puzzle,
+    solving::{Solver, SolverResult},
     arguments::{Action, Scope, Error}
 };
 
@@ -85,6 +85,5 @@ fn print_summary(stats: &HashMap<Status, usize>, duration: Duration) {
 }
 
 pub trait SolverProvider: Sync {
-    fn get_solver(&self, puzzle: Puzzle) -> Option<Box<Solver>>;
-    fn manifest(&self) -> impl IntoIterator<Item=Puzzle>;
+    fn solvers(&self) -> &HashMap<Puzzle, Box<Solver>>;
 }
