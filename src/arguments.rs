@@ -65,7 +65,8 @@ impl ExecutionOptions {
 
                 Ok(Self { scope, action: Action::Verify })
             },
-            ["verify"] | [] => Ok(Self { scope: Scope::All, action: Action::Verify }),
+            ["verify"] => Ok(Self { scope: Scope::All, action: Action::Verify }),
+            [] => Ok(Self { scope: Scope::All, action: Action::Run }),
             [scope] => {
                 let scope = Scope::parse(scope)
                     .map_err(nom::Err::<nom::error::Error<&str>>::to_owned)?;
