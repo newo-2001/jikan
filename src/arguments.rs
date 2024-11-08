@@ -4,7 +4,7 @@ use std::fmt::Display;
 
 use clap::Parser;
 
-use crate::{puzzles::Day, Puzzle};
+use crate::puzzles::{Day, Puzzle};
 
 #[derive(Parser, Debug, Clone, Copy, PartialEq, Eq, Hash)]
 #[command(version, about, long_about = None)]

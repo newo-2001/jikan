@@ -11,19 +11,19 @@ mod utils;
 mod manifest;
 
 pub use {
-    puzzles::{Puzzle, Day},
+    puzzles::Puzzle,
     solving::{Solver, SolverResult},
     arguments::{ExecutionOptions, Scope},
-    manifest::{Manifest, DataManifest, DayManifest, PuzzleManifest, TestCase}
+    manifest::{Manifest, DataManifest, DayManifest, PuzzleManifest, Example}
 };
 
 pub fn execute<E: Display, H: BuildHasher + Sync>(options: ExecutionOptions, manifest: &Manifest<E, H>) {
-    let puzzles = options.scope.puzzles(&manifest.data);
-    println!("Executing {} puzzle(s)...", puzzles.len());
+    let scenarios  = options.scope.scenarios(&manifest.data, options.examples);
+    println!("Executing {} scenarios(s)...", scenarios.len());
 
     let start_time = Instant::now();
 
-    let results = puzzles
+    let results = scenarios
         .par_iter()
         .map(|&puzzle| {
             let result = if options.verify {
@@ -54,7 +54,7 @@ fn print_summary(stats: &HashMap<Status, usize>, duration: Duration) {
         .map(|status| *stats.get(&status).unwrap_or(&0));
 
     let total_puzzles: usize = stats.values().sum();
-    let puzzles = if total_puzzles == 1 { "puzzle" } else { "puzzles" };
+    let puzzles = if total_puzzles == 1 { "scenario" } else { "scenarios" };
     
     let msg = format!("Execution took {}", utils::format_duration(&duration)).bold().bright_blue();
     println!("\n{msg}");

@@ -1,27 +1,34 @@
-use std::fmt::{Display, Formatter};
+use std::{fmt::{Display, Formatter}, iter};
 
 use serde::Deserialize;
 
-use crate::{DataManifest, DayManifest, Scope};
+use crate::{DataManifest, DayManifest, PuzzleManifest, Scope};
 
 #[derive(Debug, Clone, Copy, Eq, PartialEq, Hash)]
 pub struct Puzzle {
     pub year: u32,
     pub day: u32,
-    pub part: u32
+    pub part: usize
 }
 
-impl Display for Puzzle {
-    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{} day {:02} part {}", self.year, self.day, self.part)
+#[derive(Debug, Clone, Copy, Eq, PartialEq, Hash)]
+pub (crate) enum Scenario {
+    Puzzle(Puzzle),
+    Example {
+        puzzle: Puzzle,
+        number: usize
     }
 }
 
-impl Puzzle {
-    pub (crate) fn get_day(self) -> Day {
-        Day {
-            year: self.year,
-            day: self.day
+impl Display for Scenario {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::Puzzle(Puzzle { year, day, part }) => {
+                write!(f, "{year:04} day {day:02} part {part}")
+            },
+            Self::Example { puzzle: Puzzle { year, day, part }, number } => {
+                write!(f, "{year:04} day {day:02} part {part} (example {number})")
+            }
         }
     }
 }
@@ -45,33 +52,52 @@ impl TryFrom<String> for Day {
     }
 }
 
-fn puzzles_for_day(day: Day, manifest: &DayManifest) -> impl Iterator<Item=Puzzle> {
-    (1..=manifest.parts.len()).map(move |part| Puzzle {
-        year: day.year,
-        day: day.day,
-        #[allow(clippy::cast_possible_truncation)]
-        part: part as u32
-    })
+fn scenarios_for_puzzle(puzzle: Puzzle, manifest: &PuzzleManifest, include_examples: bool) -> impl Iterator<Item=Scenario> {
+    let examples = if include_examples {
+        (1..=manifest.examples.len())
+            .map(move |number| Scenario::Example { puzzle, number })
+            .collect()
+    } else { Vec::new() };
+
+    examples.into_iter().chain(iter::once(Scenario::Puzzle(puzzle)))
+}
+
+fn scenarios_for_day(day: Day, manifest: &DayManifest, include_examples: bool) -> impl Iterator<Item=Scenario> + '_ {
+    manifest.parts
+        .iter()
+        .enumerate()
+        .flat_map(move |(part, manifest)| {
+            let puzzle = Puzzle {
+                year: day.year,
+                day: day.day,
+                part: part + 1
+            };
+
+            scenarios_for_puzzle(puzzle, manifest, include_examples)
+        })
 }
 
 impl Scope {
-    pub (crate) fn puzzles(self, manifest: &DataManifest) -> Vec<Puzzle> {
+    pub (crate) fn scenarios(self, manifest: &DataManifest, include_examples: bool) -> Vec<Scenario> {
         match self {
             Scope::All => manifest.puzzles
                 .iter()
-                .flat_map(|(&day, manifest)| puzzles_for_day(day, manifest))
+                .flat_map(|(&day, manifest)| scenarios_for_day(day, manifest, include_examples))
                 .collect(),
             Scope::Year(year) => manifest.puzzles
                 .iter()
                 .filter(|(day, _)| day.year == year)
-                .flat_map(|(&day, manifest)| puzzles_for_day(day, manifest))
+                .flat_map(|(&day, manifest)| scenarios_for_day(day, manifest, include_examples))
                 .collect(),
-            Scope::Day(scope) => manifest.puzzles
-                .iter()
-                .filter(|&(day, _)| *day == scope)
-                .flat_map(|(&day, manifest)| puzzles_for_day(day, manifest))
-                .collect(),
-            Scope::Puzzle(puzzle) => vec![puzzle]
+            Scope::Day(day) => manifest.puzzles
+                .get(&day)
+                .map(|manifest| scenarios_for_day(day, manifest, include_examples).collect())
+                .unwrap_or_default(),
+            Scope::Puzzle(puzzle) => manifest.puzzles
+                .get(&Day { year: puzzle.year, day: puzzle.day })
+                .and_then(|day| day.parts.get(puzzle.part))
+                .map(|manifest| scenarios_for_puzzle(puzzle, manifest, include_examples).collect())
+                .unwrap_or_default()
         }
     }
 }

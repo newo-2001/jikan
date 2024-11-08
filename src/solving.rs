@@ -3,13 +3,18 @@ use std::{fmt::Display, hash::BuildHasher, time::{Duration, Instant}};
 use colored::{ColoredString, Colorize};
 use thiserror::Error;
 
-use crate::{utils, Manifest, Puzzle};
+use crate::{puzzles::Scenario, utils, Manifest};
+
+pub (crate) struct ScenarioData<'a> {
+    pub (crate) input: &'a str,
+    pub (crate) solution: Option<&'a str>
+}
 
 #[derive(Debug, Clone, Error)]
-pub (crate) enum Error {
+pub (crate) enum Error<'a> {
     #[error("Solver produced an incorrect answer, expected: `{expected}` got `{actual}`")]
     IncorrectAnswer {
-        expected: String,
+        expected: &'a str,
         actual: String
     },
     #[error("An error occurred whilst executing the puzzle:\n\t{0}")]
@@ -21,9 +26,11 @@ pub (crate) enum ResolutionError {
     #[error("Failed to resolve solver")]
     Solver,
     #[error("Puzzle not found in data manifest")]
-    Data,
+    Puzzle,
     #[error("No input found for puzzle in data manifest")]
-    Input
+    Input,
+    #[error("No solution found for puzzle in data manifest")]
+    Solution
 }
 
 #[derive(Clone, Copy, Hash, PartialEq, Eq)]
@@ -39,19 +46,19 @@ pub (crate) struct Statistics {
 }
 
 #[derive(Debug)]
-pub (crate) enum Result {
+pub (crate) enum Result<'a> {
     Success {
         result: String,
         stats: Statistics,
     },
     Failure {
-        error: Error,
+        error: Error<'a>,
         stats: Statistics
     },
     Skipped(ResolutionError),
 }
 
-impl Result {
+impl Result<'_> {
     pub fn status(&self) -> Status {
         match *self {
             Self::Success { .. } => Status::Success,
@@ -61,7 +68,7 @@ impl Result {
     }
 }
 
-impl Display for Result {
+impl Display for Result<'_> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         struct DisplayInfo {
             status: ColoredString,
@@ -98,20 +105,25 @@ impl Display for Result {
     }
 }
 
-impl Puzzle {
+impl Scenario {
     pub (crate) fn run<E: Display, H: BuildHasher>(self, manifest: &Manifest<E, H>) -> Result {
-        let solver = match manifest.solvers.get(&self) {
+        let puzzle = match self {
+            | Scenario::Example { puzzle, .. }
+            | Scenario::Puzzle(puzzle) => puzzle
+        };
+
+        let solver = match manifest.solvers.get(&puzzle) {
             None => return Result::Skipped(ResolutionError::Solver),
             Some(solver) => solver,
         };
 
-        let puzzle = match manifest.data.for_puzzle(self) {
+        let data = match manifest.data.for_scenario(self) {
             Err(err) => return Result::Skipped(err),
             Ok(result) => result
         };
 
         let start_time = Instant::now();
-        let result = match solver(puzzle.input) {
+        let result = match solver(data.input) {
             Err(error) => return Result::Failure {
                 stats: Statistics {
                     duration: start_time.elapsed()
@@ -130,9 +142,14 @@ impl Puzzle {
     }
 
     pub (crate) fn verify<E: Display, H: BuildHasher>(self, manifest: &Manifest<E, H>) -> Result {
-        let data = match manifest.data.for_puzzle(self) {
+        let data = match manifest.data.for_scenario(self) {
             Err(err) => return Result::Skipped(err),
             Ok(result) => result
+        };
+
+        let solution = match data.solution {
+            None => return Result::Skipped(ResolutionError::Solution),
+            Some(solution) => solution
         };
 
         let (result, stats) = match self.run(manifest) {
@@ -140,12 +157,12 @@ impl Puzzle {
             Result::Success { result, stats } => (result, stats)
         };
 
-        if data.solution == result {
+        if solution == result {
             Result::Success { result, stats }
         } else {
             Result::Failure {
                 error: Error::IncorrectAnswer {
-                    expected: data.solution.to_owned(),
+                    expected: solution,
                     actual: result
                 },
                 stats
