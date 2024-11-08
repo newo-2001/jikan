@@ -1,9 +1,9 @@
-use std::{collections::HashMap, fmt::Display, hash::BuildHasher, time::{Duration, Instant}};
+use std::{fmt::Display, hash::BuildHasher, time::{Duration, Instant}};
 
 use colored::{ColoredString, Colorize};
 use thiserror::Error;
 
-use crate::{puzzles::DataError, utils, Puzzle};
+use crate::{utils, Manifest, Puzzle};
 
 #[derive(Debug, Clone, Error)]
 pub (crate) enum Error {
@@ -20,10 +20,10 @@ pub (crate) enum Error {
 pub (crate) enum ResolutionError {
     #[error("Failed to resolve solver")]
     Solver,
-    #[error("Failed to resolve solution to part {0}")]
-    Solution(u32),
-    #[error(transparent)]
-    Data(#[from] DataError)
+    #[error("Puzzle not found in data manifest")]
+    Data,
+    #[error("No input found for puzzle in data manifest")]
+    Input
 }
 
 #[derive(Clone, Copy, Hash, PartialEq, Eq)]
@@ -99,19 +99,19 @@ impl Display for Result {
 }
 
 impl Puzzle {
-    pub (crate) fn run<E: Display, H: BuildHasher>(self, provider: &HashMap<Puzzle, Solver<E>, H>) -> Result {
-        let solver = match provider.get(&self) {
+    pub (crate) fn run<E: Display, H: BuildHasher>(self, manifest: &Manifest<E, H>) -> Result {
+        let solver = match manifest.solvers.get(&self) {
             None => return Result::Skipped(ResolutionError::Solver),
             Some(solver) => solver,
         };
 
-        let data = match self.get_data() {
-            Err(err) => return Result::Skipped(ResolutionError::Data(err)),
+        let puzzle = match manifest.data.for_puzzle(self) {
+            Err(err) => return Result::Skipped(err),
             Ok(result) => result
         };
 
         let start_time = Instant::now();
-        let result = match solver(&data.input) {
+        let result = match solver(puzzle.input) {
             Err(error) => return Result::Failure {
                 stats: Statistics {
                     duration: start_time.elapsed()
@@ -129,28 +129,23 @@ impl Puzzle {
         }
     }
 
-    pub (crate) fn verify<E: Display, H: BuildHasher>(self, provider: &HashMap<Puzzle, Solver<E>, H>) -> Result {
-        let data = match self.get_data() {
-            Err(err) => return Result::Skipped(ResolutionError::Data(err)),
+    pub (crate) fn verify<E: Display, H: BuildHasher>(self, manifest: &Manifest<E, H>) -> Result {
+        let data = match manifest.data.for_puzzle(self) {
+            Err(err) => return Result::Skipped(err),
             Ok(result) => result
         };
 
-        let (result, stats) = match self.run(provider) {
+        let (result, stats) = match self.run(manifest) {
             err @ (Result::Skipped(_) | Result::Failure { .. }) => return err,
             Result::Success { result, stats } => (result, stats)
         };
 
-        let expected = match data.solutions.get(self.part as usize - 1) {
-            None => return Result::Skipped(ResolutionError::Solution(self.part)),
-            Some(solution) => solution
-        };
-
-        if expected == &result {
+        if data.solution == result {
             Result::Success { result, stats }
         } else {
             Result::Failure {
                 error: Error::IncorrectAnswer {
-                    expected: expected.clone(),
+                    expected: data.solution.to_owned(),
                     actual: result
                 },
                 stats

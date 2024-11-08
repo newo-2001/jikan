@@ -1,30 +1,14 @@
-use std::{collections::HashMap, fmt::{Display, Formatter}, fs, hash::BuildHasher};
+use std::fmt::{Display, Formatter};
 
 use serde::Deserialize;
-use thiserror::Error;
 
-use crate::{Scope, Solver};
+use crate::{DataManifest, DayManifest, Scope};
 
 #[derive(Debug, Clone, Copy, Eq, PartialEq, Hash)]
 pub struct Puzzle {
     pub year: u32,
     pub day: u32,
     pub part: u32
-}
-
-#[derive(Debug, Deserialize)]
-pub (crate) struct PuzzleData {
-    pub input: String,
-    #[serde(default)]
-    pub solutions: Vec<String>
-}
-
-#[derive(Debug, Error)]
-pub (crate) enum DataError {
-    #[error("Failed to resolve input file: {0}")]
-    NoFile(String),
-    #[error("Failed to parse puzzle data: {0}")]
-    Malformed(#[from] serde_yml::modules::error::Error)
 }
 
 impl Display for Puzzle {
@@ -34,31 +18,58 @@ impl Display for Puzzle {
 }
 
 impl Puzzle {
-    pub (crate) fn get_data(self) -> Result<PuzzleData, DataError> {
-        let path = format!("data/{}/day_{:02}.yaml", self.year, self.day);
-        let content = fs::read_to_string(&path)
-            .map_err(|_| DataError::NoFile(path))?;
-
-        Ok(serde_yml::from_str::<PuzzleData>(&content)?)
+    pub (crate) fn get_day(self) -> Day {
+        Day {
+            year: self.year,
+            day: self.day
+        }
     }
 }
 
+#[derive(Debug, Clone, Copy, Eq, PartialEq, Hash, Deserialize)]
+#[serde(try_from = "String")]
+pub struct Day {
+    pub year: u32,
+    pub day: u32
+}
+
+impl TryFrom<String> for Day {
+    type Error = &'static str;
+
+    fn try_from(value: String) -> Result<Self, Self::Error> {
+        value.split_once('-')
+            .and_then(|(year, day)| Some(Self {
+                year: year.parse().ok()?,
+                day: day.parse().ok()?
+            })).ok_or("Day has to be in the format: yyyy-dd")
+    }
+}
+
+fn puzzles_for_day(day: Day, manifest: &DayManifest) -> impl Iterator<Item=Puzzle> {
+    (1..=manifest.parts.len()).map(move |part| Puzzle {
+        year: day.year,
+        day: day.day,
+        #[allow(clippy::cast_possible_truncation)]
+        part: part as u32
+    })
+}
+
 impl Scope {
-    pub (crate) fn puzzles<E: Display, H: BuildHasher>(self, solvers: &HashMap<Puzzle, Solver<E>, H>) -> Vec<Puzzle> {
+    pub (crate) fn puzzles(self, manifest: &DataManifest) -> Vec<Puzzle> {
         match self {
-            Scope::All => solvers
-                .keys()
-                .copied()
+            Scope::All => manifest.puzzles
+                .iter()
+                .flat_map(|(&day, manifest)| puzzles_for_day(day, manifest))
                 .collect(),
-            Scope::Year(year) => solvers
-                .keys()
-                .filter(|puzzle| puzzle.year == year)
-                .copied()
+            Scope::Year(year) => manifest.puzzles
+                .iter()
+                .filter(|(day, _)| day.year == year)
+                .flat_map(|(&day, manifest)| puzzles_for_day(day, manifest))
                 .collect(),
-            Scope::Day(year, day) => solvers
-                .keys()
-                .filter(|puzzle| puzzle.year == year && puzzle.day == day)
-                .copied()
+            Scope::Day(scope) => manifest.puzzles
+                .iter()
+                .filter(|&(day, _)| *day == scope)
+                .flat_map(|(&day, manifest)| puzzles_for_day(day, manifest))
                 .collect(),
             Scope::Puzzle(puzzle) => vec![puzzle]
         }

@@ -1,8 +1,3 @@
-#![allow(
-    clippy::module_name_repetitions,
-    clippy::similar_names
-)]
-
 use std::{collections::HashMap, fmt::Display, hash::BuildHasher, time::{Duration, Instant}};
 
 use colored::Colorize;
@@ -13,11 +8,13 @@ mod arguments;
 mod solving;
 mod puzzles;
 mod utils;
+mod manifest;
 
 pub use {
-    puzzles::Puzzle,
+    puzzles::{Puzzle, Day},
     solving::{Solver, SolverResult},
-    arguments::{Action, Scope, Error}
+    arguments::{Action, Scope, Error},
+    manifest::{Manifest, DataManifest, DayManifest, PuzzleManifest, TestCase}
 };
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
@@ -26,8 +23,8 @@ pub struct ExecutionOptions {
     action: Action
 }
 
-pub fn execute<E: Display, H: BuildHasher + Sync>(options: ExecutionOptions, provider: &HashMap<Puzzle, Solver<E>, H>) {
-    let puzzles = options.scope.puzzles(provider);
+pub fn execute<E: Display, H: BuildHasher + Sync>(options: ExecutionOptions, manifest: &Manifest<E, H>) {
+    let puzzles = options.scope.puzzles(&manifest.data);
     println!("Executing {} puzzle(s)...", puzzles.len());
 
     let start_time = Instant::now();
@@ -36,8 +33,8 @@ pub fn execute<E: Display, H: BuildHasher + Sync>(options: ExecutionOptions, pro
         .par_iter()
         .map(|&puzzle| {
             let result = match options.action {
-                Action::Run => puzzle.run(provider),
-                Action::Verify => puzzle.verify(provider)
+                Action::Run => puzzle.run(manifest),
+                Action::Verify => puzzle.verify(manifest)
             };
 
             let puzzle_str = format!("[{puzzle}]").bold().bright_blue();

@@ -5,7 +5,7 @@ use std::env;
 use nom::{combinator::{eof, all_consuming, value}, character::complete::{u32, char}, sequence::{separated_pair, tuple, preceded}, Parser, branch::alt};
 use thiserror::Error;
 
-use crate::{ExecutionOptions, Puzzle};
+use crate::{puzzles::Day, ExecutionOptions, Puzzle};
 
 #[derive(Clone, Copy, Debug, Hash, PartialEq, Eq)]
 pub enum Action {
@@ -17,7 +17,7 @@ pub enum Action {
 pub enum Scope {
     All,
     Year(u32),
-    Day(u32, u32),
+    Day(Day),
     Puzzle(Puzzle)
 }
 
@@ -33,7 +33,7 @@ impl Scope {
                 Self::Puzzle(Puzzle { year, day, part })
             }),
             separated_pair(u32, char('-'), u32)
-                .map(|(year, day)| Self::Day(year, day)),
+                .map(|(year, day)| Self::Day(Day { year, day })),
             u32.map(Self::Year)
         ))).parse(input)?.1)
     }
