@@ -95,7 +95,7 @@ impl Scope {
                 .unwrap_or_default(),
             Scope::Puzzle(puzzle) => manifest.puzzles
                 .get(&Day { year: puzzle.year, day: puzzle.day })
-                .and_then(|day| day.parts.get(puzzle.part))
+                .and_then(|day| day.parts.get(puzzle.part - 1))
                 .map(|manifest| scenarios_for_puzzle(puzzle, manifest, include_examples).collect())
                 .unwrap_or_default()
         }
