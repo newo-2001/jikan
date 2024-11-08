@@ -13,15 +13,9 @@ mod manifest;
 pub use {
     puzzles::{Puzzle, Day},
     solving::{Solver, SolverResult},
-    arguments::{Action, Scope, Error},
+    arguments::{ExecutionOptions, Scope},
     manifest::{Manifest, DataManifest, DayManifest, PuzzleManifest, TestCase}
 };
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
-pub struct ExecutionOptions {
-    scope: Scope,
-    action: Action
-}
 
 pub fn execute<E: Display, H: BuildHasher + Sync>(options: ExecutionOptions, manifest: &Manifest<E, H>) {
     let puzzles = options.scope.puzzles(&manifest.data);
@@ -32,9 +26,10 @@ pub fn execute<E: Display, H: BuildHasher + Sync>(options: ExecutionOptions, man
     let results = puzzles
         .par_iter()
         .map(|&puzzle| {
-            let result = match options.action {
-                Action::Run => puzzle.run(manifest),
-                Action::Verify => puzzle.verify(manifest)
+            let result = if options.verify {
+                puzzle.verify(manifest)
+            } else {
+                puzzle.run(manifest)
             };
 
             let puzzle_str = format!("[{puzzle}]").bold().bright_blue();
