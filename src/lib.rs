@@ -1,7 +1,7 @@
 use std::{collections::HashMap, fmt::Display, hash::BuildHasher, time::{Duration, Instant}};
 
 use colored::Colorize;
-use rayon::prelude::{IntoParallelRefIterator, ParallelIterator};
+use puzzles::Scenario;
 use solving::Status;
 
 mod arguments;
@@ -22,21 +22,7 @@ pub fn execute<E: Display, H: BuildHasher + Sync>(options: ExecutionOptions, man
     println!("Executing {} scenarios(s)...", scenarios.len());
 
     let start_time = Instant::now();
-
-    let results = scenarios
-        .par_iter()
-        .map(|&puzzle| {
-            let result = if options.verify {
-                puzzle.verify(manifest)
-            } else {
-                puzzle.run(manifest)
-            };
-
-            let puzzle_str = format!("[{puzzle}]").bold().bright_blue();
-            println!("{puzzle_str} {result}");
-
-            result.status()
-        }).collect::<Vec<_>>();
+    let results = execute_scenarios(options, &scenarios, manifest);
 
     let mut stats = HashMap::new();
     for result in results {
@@ -47,6 +33,31 @@ pub fn execute<E: Display, H: BuildHasher + Sync>(options: ExecutionOptions, man
     print_summary(&stats, duration);
 }
 
+#[cfg(feature = "parallel")]
+fn execute_scenarios<E: Display, H: BuildHasher + Sync>(
+    options: ExecutionOptions,
+    scenarios: &[Scenario],
+    manifest: &Manifest<E, H>
+) -> Vec<Status> {
+    use rayon::iter::{IntoParallelRefIterator, ParallelIterator};
+
+    scenarios
+        .par_iter()
+        .map(|scenario| scenario.execute(options, manifest))
+        .collect::<Vec<_>>()
+}
+
+#[cfg(not(feature = "parallel"))]
+fn execute_scenarios<E: Display, H: BuildHasher>(
+    options: ExecutionOptions,
+    scenarios: &[Scenario],
+    manifest: &Manifest<E, H>
+) -> Vec<Status> {
+    scenarios
+        .iter()
+        .map(|scenario| scenario.execute(options, manifest))
+        .collect::<Vec<_>>()
+}
 
 // TODO: Clean this up
 fn print_summary(stats: &HashMap<Status, usize>, duration: Duration) {
@@ -65,12 +76,12 @@ fn print_summary(stats: &HashMap<Status, usize>, duration: Duration) {
     }
 
     if failed > 0 {
-        let msg = format!("{failed} / {total_puzzles} {puzzles} failed to execute").bold().bright_red();
+        let msg = format!("{failed} / {total_puzzles} {puzzles} failed").bold().bright_red();
         println!("{msg}");
     }
 
     if not_ran > 0 {
-        let msg = format!("{not_ran} / {total_puzzles} {puzzles} were not executed").bold().bright_yellow();
+        let msg = format!("{not_ran} / {total_puzzles} {puzzles} were skipped").bold().bright_yellow();
         println!("{msg}");
     }
 }

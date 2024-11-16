@@ -27,7 +27,7 @@ impl Display for Scenario {
                 write!(f, "{year:04} day {day:02} part {part}")
             },
             Self::Example { puzzle: Puzzle { year, day, part }, number } => {
-                write!(f, "{year:04} day {day:02} part {part} (example {number})")
+                write!(f, "{year:04} day {day:02} part {part} ex. {number}")
             }
         }
     }

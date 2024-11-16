@@ -3,7 +3,7 @@ use std::{fmt::Display, hash::BuildHasher, time::{Duration, Instant}};
 use colored::{ColoredString, Colorize};
 use thiserror::Error;
 
-use crate::{puzzles::Scenario, utils, Manifest};
+use crate::{puzzles::Scenario, utils, ExecutionOptions, Manifest};
 
 pub (crate) struct ScenarioData<'a> {
     pub (crate) input: &'a str,
@@ -168,6 +168,19 @@ impl Scenario {
                 stats
             }
         }
+    }
+
+    pub fn execute<E: Display, H: BuildHasher>(&self, options: ExecutionOptions, manifest: &Manifest<E, H>) -> Status {
+        let result = if options.verify {
+            self.verify(manifest)
+        } else {
+            self.run(manifest)
+        };
+
+        let puzzle_str = format!("[{self}]").bold().bright_blue();
+        println!("{puzzle_str:<28} {result}");
+
+        result.status()
     }
 }
 
