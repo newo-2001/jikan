@@ -14,7 +14,7 @@ pub use {
     puzzles::{Puzzle, Day},
     solving::{Solver, SolverResult},
     arguments::{ExecutionOptions, Scope},
-    manifest::{Manifest, DataManifest, DayManifest, PuzzleManifest, Example}
+    manifest::{Manifest, DataManifest, DayManifest, PuzzleManifest, Example, locate_manifests}
 };
 
 pub fn execute<E: Display, H: BuildHasher + Sync>(options: ExecutionOptions, manifest: &Manifest<E, H>) {

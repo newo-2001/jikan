@@ -10,7 +10,7 @@ pub (crate) struct ScenarioData<'a> {
     pub (crate) solution: Option<&'a str>
 }
 
-#[derive(Debug, Clone, Error)]
+#[derive(Debug, Error)]
 pub (crate) enum Error<'a> {
     #[error("Solver produced an incorrect answer, expected: `{expected}` got `{actual}`")]
     IncorrectAnswer {

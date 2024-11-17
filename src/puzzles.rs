@@ -78,6 +78,15 @@ fn scenarios_for_day(day: Day, manifest: &DayManifest, include_examples: bool) -
 }
 
 impl Scope {
+    pub (crate) fn contains_day(self, day: Day) -> bool {
+        match self {
+            Scope::All => true,
+            Scope::Year(year) => day.year == year,
+            Scope::Day(scope_day) => scope_day == day,
+            Scope::Puzzle(Puzzle { year, day: scope_day, .. }) => scope_day == day.day && year == day.year
+        }
+    }
+
     pub (crate) fn scenarios(self, manifest: &DataManifest, include_examples: bool) -> Vec<Scenario> {
         match self {
             Scope::All => manifest.puzzles

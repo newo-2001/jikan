@@ -5,8 +5,15 @@
 fn main() -> Result<(), Box<dyn Error>> {
     let options = jikan::ExecutionOptions::from_args();
 
-    let file = File::open("data.yaml")?;
-    let data = serde_yml::from_reader(file)?;
+    let puzzles: HashMap<Day, DayManifest> = jikan::locate_manifests(Path::new("data"), options.scope)?
+        .into_iter()
+        .map(|(day, path)| {
+            let file = File::open(path)?;
+            let manifest = serde_yml::from_reader(file)?;
+            Ok((day, manifest))
+        })
+        .collect::<anyhow::Result<_>>()?;
+
 
     let solvers: HashMap<Puzzle, Solver> = [
         (Puzzle { year: 2023, day: 1, part: 1 }, solvers_2023::day_01::solve_part_1 as Solver)
@@ -19,16 +26,14 @@ fn main() -> Result<(), Box<dyn Error>> {
 }
 ```
 
-The inputs, and solutions can be parsed using any serde compatible parser.
+The inputs, and solutions can be parsed using any serde compatible deserializer.
 Here is an example YAML structure
 ```yaml
-puzzles: 
-  2023-01:
-    input: |-
-        1abc2
-        pqr3stu8vwx
-        a1b2c3d4e5f
-        treb7uchet
-    parts:
-    - solution: 142
+input: |-
+  1abc2
+  pqr3stu8vwx
+  a1b2c3d4e5f
+  treb7uchet
+parts:
+  - solution: 142
 ```
