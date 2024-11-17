@@ -11,7 +11,7 @@ mod utils;
 mod manifest;
 
 pub use {
-    puzzles::Puzzle,
+    puzzles::{Puzzle, Day},
     solving::{Solver, SolverResult},
     arguments::{ExecutionOptions, Scope},
     manifest::{Manifest, DataManifest, DayManifest, PuzzleManifest, Example}
