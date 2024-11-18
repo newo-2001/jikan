@@ -2,13 +2,19 @@ use std::{fmt::{Display, Formatter}, iter};
 
 use serde::Deserialize;
 
-use crate::{DataManifest, DayManifest, PuzzleManifest, Scope};
+use crate::{PuzzleManifest, Scope};
 
 #[derive(Debug, Clone, Copy, Eq, PartialEq, Hash)]
 pub struct Puzzle {
     pub year: u32,
     pub day: u32,
     pub part: usize
+}
+
+impl From<Puzzle> for Day {
+    fn from(value: Puzzle) -> Self {
+        Day { year: value.year, day: value.day }
+    }
 }
 
 #[derive(Debug, Clone, Copy, Eq, PartialEq, Hash)]
@@ -40,6 +46,12 @@ pub struct Day {
     pub day: u32
 }
 
+impl Display for Day {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{:04}-{:02}", self.year, self.day)
+    }
+}
+
 impl TryFrom<String> for Day {
     type Error = &'static str;
 
@@ -52,7 +64,7 @@ impl TryFrom<String> for Day {
     }
 }
 
-fn scenarios_for_puzzle(puzzle: Puzzle, manifest: &PuzzleManifest, include_examples: bool) -> impl Iterator<Item=Scenario> {
+pub (crate) fn scenarios_for_puzzle(puzzle: Puzzle, manifest: &PuzzleManifest, include_examples: bool) -> impl Iterator<Item=Scenario> {
     let examples = if include_examples {
         (1..=manifest.examples.len())
             .map(move |number| Scenario::Example { puzzle, number })
@@ -62,51 +74,22 @@ fn scenarios_for_puzzle(puzzle: Puzzle, manifest: &PuzzleManifest, include_examp
     examples.into_iter().chain(iter::once(Scenario::Puzzle(puzzle)))
 }
 
-fn scenarios_for_day(day: Day, manifest: &DayManifest, include_examples: bool) -> impl Iterator<Item=Scenario> + '_ {
-    manifest.parts
-        .iter()
-        .enumerate()
-        .flat_map(move |(part, manifest)| {
-            let puzzle = Puzzle {
-                year: day.year,
-                day: day.day,
-                part: part + 1
-            };
-
-            scenarios_for_puzzle(puzzle, manifest, include_examples)
-        })
-}
-
 impl Scope {
     pub (crate) fn contains_day(self, day: Day) -> bool {
         match self {
-            Scope::All => true,
-            Scope::Year(year) => day.year == year,
-            Scope::Day(scope_day) => scope_day == day,
-            Scope::Puzzle(Puzzle { year, day: scope_day, .. }) => scope_day == day.day && year == day.year
+            Self::All => true,
+            Self::Year(year) => day.year == year,
+            Self::Day(day_scope) => day_scope == day,
+            Self::Puzzle(Puzzle { day: scope_day, year, .. }) => day.day == scope_day && year == day.year
         }
     }
 
-    pub (crate) fn scenarios(self, manifest: &DataManifest, include_examples: bool) -> Vec<Scenario> {
+    pub (crate) fn contains_puzzle(self, puzzle: Puzzle) -> bool {
         match self {
-            Scope::All => manifest.puzzles
-                .iter()
-                .flat_map(|(&day, manifest)| scenarios_for_day(day, manifest, include_examples))
-                .collect(),
-            Scope::Year(year) => manifest.puzzles
-                .iter()
-                .filter(|(day, _)| day.year == year)
-                .flat_map(|(&day, manifest)| scenarios_for_day(day, manifest, include_examples))
-                .collect(),
-            Scope::Day(day) => manifest.puzzles
-                .get(&day)
-                .map(|manifest| scenarios_for_day(day, manifest, include_examples).collect())
-                .unwrap_or_default(),
-            Scope::Puzzle(puzzle) => manifest.puzzles
-                .get(&Day { year: puzzle.year, day: puzzle.day })
-                .and_then(|day| day.parts.get(puzzle.part - 1))
-                .map(|manifest| scenarios_for_puzzle(puzzle, manifest, include_examples).collect())
-                .unwrap_or_default()
+            Self::All => true,
+            Self::Year(year) => year == puzzle.year,
+            Self::Day(day) => puzzle.day == day.day && puzzle.year == day.year,
+            Self::Puzzle(puzzle_scope) => puzzle_scope == puzzle
         }
     }
 }

@@ -1,9 +1,9 @@
-use std::{fmt::Display, hash::BuildHasher, time::{Duration, Instant}};
+use std::{collections::HashMap, fmt::Display, hash::BuildHasher, time::{Duration, Instant}};
 
 use colored::{ColoredString, Colorize};
 use thiserror::Error;
 
-use crate::{puzzles::Scenario, utils, ExecutionOptions, Manifest};
+use crate::{puzzles::Scenario, utils, DayManifest, ExecutionOptions, Puzzle};
 
 pub (crate) struct ScenarioData<'a> {
     pub (crate) input: &'a str,
@@ -25,8 +25,6 @@ pub (crate) enum Error<'a> {
 pub (crate) enum ResolutionError {
     #[error("Failed to resolve solver")]
     Solver,
-    #[error("Puzzle not found in data manifest")]
-    Puzzle,
     #[error("No input found for puzzle in data manifest")]
     Input,
     #[error("No solution found for puzzle in data manifest")]
@@ -106,18 +104,22 @@ impl Display for Result<'_> {
 }
 
 impl Scenario {
-    pub (crate) fn run<E: Display, H: BuildHasher>(self, manifest: &Manifest<E, H>) -> Result {
+    pub (crate) fn run<'a, E: Display, H: BuildHasher>(
+        self,
+        manifest: &'a DayManifest,
+        solvers: &HashMap<Puzzle, Solver<E>, H>
+    ) -> Result<'a> {
         let puzzle = match self {
             | Scenario::Example { puzzle, .. }
             | Scenario::Puzzle(puzzle) => puzzle
         };
 
-        let solver = match manifest.solvers.get(&puzzle) {
+        let solver = match solvers.get(&puzzle) {
             None => return Result::Skipped(ResolutionError::Solver),
-            Some(solver) => solver,
+            Some(solver) => solver
         };
 
-        let data = match manifest.data.for_scenario(self) {
+        let data = match manifest.data_for_scenario(self) {
             Err(err) => return Result::Skipped(err),
             Ok(result) => result
         };
@@ -141,8 +143,12 @@ impl Scenario {
         }
     }
 
-    pub (crate) fn verify<E: Display, H: BuildHasher>(self, manifest: &Manifest<E, H>) -> Result {
-        let data = match manifest.data.for_scenario(self) {
+    pub (crate) fn verify<'a, E: Display, H: BuildHasher>(
+        self,
+        manifest: &'a DayManifest,
+        solvers: &HashMap<Puzzle, Solver<E>, H>
+    ) -> Result<'a> {
+        let data = match manifest.data_for_scenario(self) {
             Err(err) => return Result::Skipped(err),
             Ok(result) => result
         };
@@ -152,7 +158,7 @@ impl Scenario {
             Some(solution) => solution
         };
 
-        let (result, stats) = match self.run(manifest) {
+        let (result, stats) = match self.run(manifest, solvers) {
             err @ (Result::Skipped(_) | Result::Failure { .. }) => return err,
             Result::Success { result, stats } => (result, stats)
         };
@@ -170,11 +176,16 @@ impl Scenario {
         }
     }
 
-    pub fn execute<E: Display, H: BuildHasher>(&self, options: ExecutionOptions, manifest: &Manifest<E, H>) -> Status {
+    pub fn execute<E:Display, H: BuildHasher>(
+        &self,
+        options: ExecutionOptions,
+        manifest: &DayManifest,
+        solvers: &HashMap<Puzzle, Solver<E>, H>
+    ) -> Status {
         let result = if options.verify {
-            self.verify(manifest)
+            self.verify(manifest, solvers)
         } else {
-            self.run(manifest)
+            self.run(manifest, solvers)
         };
 
         let puzzle_str = format!("[{self}]").bold().bright_blue();

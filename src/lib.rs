@@ -1,7 +1,9 @@
 use std::{collections::HashMap, fmt::Display, hash::BuildHasher, time::{Duration, Instant}};
 
 use colored::Colorize;
-use puzzles::Scenario;
+use itertools::Itertools;
+use puzzles::scenarios_for_puzzle;
+use rayon::iter::{IntoParallelRefIterator, ParallelIterator};
 use solving::Status;
 
 mod arguments;
@@ -14,15 +16,23 @@ pub use {
     puzzles::{Puzzle, Day},
     solving::{Solver, SolverResult},
     arguments::{ExecutionOptions, Scope},
-    manifest::{Manifest, DataManifest, DayManifest, PuzzleManifest, Example, locate_manifests}
+    manifest::{DayManifest, PuzzleManifest, Example, ManifestProvider}
 };
 
-pub fn execute<E: Display, H: BuildHasher + Sync>(options: ExecutionOptions, manifest: &Manifest<E, H>) {
-    let scenarios  = options.scope.scenarios(&manifest.data, options.examples);
-    println!("Executing {} scenarios(s)...", scenarios.len());
+pub fn execute<P: ManifestProvider, E: Display, H: BuildHasher + Sync>(options: ExecutionOptions, solvers: &HashMap<Puzzle, Solver<E>, H>) {
+    let message = "Executing scenarios...".bold().blue();
+    println!("{message}");
+
+    let days: Vec<Day> = solvers
+        .keys()
+        .copied()
+        .map(Into::<Day>::into)
+        .filter(|&day| options.scope.contains_day(day))
+        .unique()
+        .collect();
 
     let start_time = Instant::now();
-    let results = execute_scenarios(options, &scenarios, manifest);
+    let results = execute_days::<E, H, P>(options, &days, solvers);
 
     let mut stats = HashMap::new();
     for result in results {
@@ -33,30 +43,48 @@ pub fn execute<E: Display, H: BuildHasher + Sync>(options: ExecutionOptions, man
     print_summary(&stats, duration);
 }
 
-#[cfg(feature = "parallel")]
-fn execute_scenarios<E: Display, H: BuildHasher + Sync>(
+fn execute_days<E: Display, H: BuildHasher + Sync, P: ManifestProvider>(
     options: ExecutionOptions,
-    scenarios: &[Scenario],
-    manifest: &Manifest<E, H>
+    days: &[Day],
+    solvers: &HashMap<Puzzle, Solver<E>, H>
 ) -> Vec<Status> {
-    use rayon::iter::{IntoParallelRefIterator, ParallelIterator};
-
-    scenarios
+    days
         .par_iter()
-        .map(|scenario| scenario.execute(options, manifest))
+        .filter_map(|&day| {
+            match P::get_manifest(day) {
+                Ok(manifest) => Some(execute_day(day, solvers, &manifest, options)),
+                Err(err) => {
+                    let err = format!("Failed to retrieve manifest for day {day}: {}", err.to_string().red());
+                    println!("{err}");
+                    None
+                }
+            }
+        })
+        .flatten()
         .collect::<Vec<_>>()
 }
 
-#[cfg(not(feature = "parallel"))]
-fn execute_scenarios<E: Display, H: BuildHasher>(
-    options: ExecutionOptions,
-    scenarios: &[Scenario],
-    manifest: &Manifest<E, H>
+fn execute_day<E:Display, H: BuildHasher + Sync>(
+    day: Day,
+    solvers: &HashMap<Puzzle, Solver<E>, H>,
+    manifest: &DayManifest,
+    options: ExecutionOptions
 ) -> Vec<Status> {
-    scenarios
+    manifest.parts
         .iter()
-        .map(|scenario| scenario.execute(options, manifest))
-        .collect::<Vec<_>>()
+        .enumerate()
+        .filter_map(|(part, manifest)| {
+            let puzzle = Puzzle { year: day.year, day: day.day, part: part + 1 };
+
+            options.scope
+                .contains_puzzle(puzzle)
+                .then_some((puzzle, manifest))
+        })
+        .flat_map(|(puzzle, manifest)|
+            scenarios_for_puzzle(puzzle, manifest, options.examples)
+        )
+        .map(|scenario| scenario.execute(options, manifest, solvers))
+        .collect()
 }
 
 // TODO: Clean this up
