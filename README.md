@@ -2,25 +2,24 @@
 
 ## Code Example
 ```rs
+struct Manifests;
+impl ManifestProvider for Manifests {
+    fn get_manifest(day: Day) -> Result<DayManifest, Box<dyn Error>> {
+        let path = format!("data/{}/day_{:02}.yaml", day.year, day.day);
+        let file = File::open(&path)?;
+        let manifest = serde_yml::from_reader(file)?;
+        Ok(manifest)
+    }
+}
+
 fn main() -> Result<(), Box<dyn Error>> {
     let options = jikan::ExecutionOptions::from_args();
-
-    let puzzles: HashMap<Day, DayManifest> = jikan::locate_manifests(Path::new("data"), options.scope)?
-        .into_iter()
-        .map(|(day, path)| {
-            let file = File::open(path)?;
-            let manifest = serde_yml::from_reader(file)?;
-            Ok((day, manifest))
-        })
-        .collect::<anyhow::Result<_>>()?;
-
 
     let solvers: HashMap<Puzzle, Solver> = [
         (Puzzle { year: 2023, day: 1, part: 1 }, solvers_2023::day_01::solve_part_1 as Solver)
     ].into_iter().collect();
 
-    let manifest = jikan::Manifest { solvers, data };
-    jikan::execute(options, &manifest);
+    jikan::execute::<Manifests, _, _>(options, &solvers);
 
     Ok(())
 }
