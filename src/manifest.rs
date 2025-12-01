@@ -28,7 +28,7 @@ pub struct Example {
 }
 
 impl DayManifest {
-    pub (crate) fn data_for_scenario(&self, scenario: Scenario) -> Result<ScenarioData, ResolutionError> {
+    pub (crate) fn data_for_scenario(&self, scenario: Scenario) -> Result<ScenarioData<'_>, ResolutionError> {
         let puzzle = match scenario {
             | Scenario::Puzzle(puzzle)
             | Scenario::Example { puzzle, .. } => puzzle
