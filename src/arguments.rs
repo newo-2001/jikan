@@ -29,7 +29,7 @@ pub struct ExecutionOptions {
         value_parser = Scope::parse,
         default_value_t = Scope::All,
         help = "The scope for which puzzles should execute",
-        long_help = "The scope for which puzzles should execute in the format: [all|yyyy[-dd[-p]]] (default: all)"
+        long_help = "The scope for which puzzles should execute in the format: [all|yyyy[-dd[-p[-x]]] (default: all)"
     )]
     pub scope: Scope
 }
@@ -45,7 +45,11 @@ pub enum Scope {
     All,
     Year(u32),
     Day(Day),
-    Puzzle(Puzzle)
+    Puzzle(Puzzle),
+    Example {
+        puzzle: Puzzle,
+        number: usize
+    }
 }
 
 impl Scope {
@@ -53,6 +57,14 @@ impl Scope {
         let parts: Vec<&str> = value.split('-').collect();
         let parse = || {
             Some(match parts.as_slice() {
+                [year, day, part, example] => Scope::Example {
+                    puzzle: Puzzle {
+                        year: year.parse().ok()?,
+                        day: day.parse().ok()?,
+                        part: part.parse().ok()?
+                    },
+                    number: example.parse().ok()?
+                },
                 [year, day, part] => Scope::Puzzle(Puzzle {
                     year: year.parse().ok()?,
                     day: day.parse().ok()?,
@@ -68,7 +80,7 @@ impl Scope {
             })
         };
 
-        parse().ok_or("Scope should be in the format: [all|yyyy[-dd[-p]]]] ")
+        parse().ok_or("Scope should be in the format: [all|yyyy[-dd[-p[-x]]]] ")
     }
 }
 
@@ -78,7 +90,10 @@ impl Display for Scope {
             Scope::All => write!(f, "all"),
             Scope::Year(year) => write!(f, "{year:0>4}"),
             Scope::Day(Day { year, day }) => write!(f, "{year:0>4}-{day:0>2}"),
-            Scope::Puzzle(Puzzle { year, day, part }) => write!(f, "{year:0>4}-{day:0>2}-{part}")
+            Scope::Puzzle(Puzzle { year, day, part }) => write!(f, "{year:0>4}-{day:0>2}-{part}"),
+            Scope::Example { puzzle: Puzzle { year, day, part }, number } => {
+                write!(f, "{year:0>4}-{day:0>2}-{part}-{number}")
+            }
         }
     }
 }

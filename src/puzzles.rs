@@ -80,7 +80,8 @@ impl Scope {
             Self::All => true,
             Self::Year(year) => day.year == year,
             Self::Day(day_scope) => day_scope == day,
-            Self::Puzzle(Puzzle { day: scope_day, year, .. }) => day.day == scope_day && year == day.year
+            Self::Puzzle(Puzzle { day: scope_day, year, .. }) => day.day == scope_day && year == day.year,
+            Self::Example { puzzle: Puzzle { day: scope_day, year, .. }, .. } => day.day == scope_day && year == day.year,
         }
     }
 
@@ -89,7 +90,8 @@ impl Scope {
             Self::All => true,
             Self::Year(year) => year == puzzle.year,
             Self::Day(day) => puzzle.day == day.day && puzzle.year == day.year,
-            Self::Puzzle(puzzle_scope) => puzzle_scope == puzzle
+            Self::Puzzle(puzzle_scope) => puzzle_scope == puzzle,
+            Self::Example { puzzle: puzzle_scope, .. } => puzzle_scope == puzzle
         }
     }
 }

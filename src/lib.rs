@@ -1,7 +1,7 @@
-use std::{collections::HashMap, fmt::Display, hash::BuildHasher, time::{Duration, Instant}};
+use std::{collections::HashMap, fmt::Display, hash::BuildHasher, iter, time::{Duration, Instant}};
 
 use colored::Colorize;
-use itertools::Itertools;
+use itertools::{Either, Itertools};
 use puzzles::scenarios_for_puzzle;
 use rayon::iter::{IntoParallelRefIterator, ParallelIterator};
 use solving::Status;
@@ -11,6 +11,8 @@ mod solving;
 mod puzzles;
 mod utils;
 mod manifest;
+
+use crate::puzzles::Scenario;
 
 pub use {
     puzzles::{Puzzle, Day},
@@ -80,9 +82,13 @@ fn execute_day<E:Display, H: BuildHasher + Sync>(
                 .contains_puzzle(puzzle)
                 .then_some((puzzle, manifest))
         })
-        .flat_map(|(puzzle, manifest)|
-            scenarios_for_puzzle(puzzle, manifest, options.examples)
-        )
+        .flat_map(|(puzzle, manifest)| {
+            if let Scope::Example { puzzle, number } = options.scope {
+                Either::Left(iter::once(Scenario::Example { puzzle, number }))
+            } else {
+                Either::Right(scenarios_for_puzzle(puzzle, manifest, options.examples))
+            }
+        })
         .map(|scenario| scenario.execute(options, manifest, solvers))
         .collect()
 }
